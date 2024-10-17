@@ -4,7 +4,7 @@ import pygame_gui
 
 # Inicializando o Pygame e o pygame_gui
 pygame.init()
-pygame.display.set_caption("Fortune Tiger")
+pygame.display.set_caption("Simulator Cassino")
 manager = pygame_gui.UIManager((800, 800))
 
 # Dimensões da tela
