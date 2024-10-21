@@ -4,25 +4,31 @@ import pygame_gui
 
 # Inicializando o Pygame e o pygame_gui
 pygame.init()
-pygame.display.set_caption("Simulator Cassino")
+pygame.display.set_caption("Simulador Cassino")
 manager = pygame_gui.UIManager((800, 800))
 
 # Dimensões da tela
 screen_width, screen_height = 800, 800
 screen = pygame.display.set_mode((screen_width, screen_height))
 
+# Carregar a imagem de background
+background_image = pygame.image.load(r'.\img\background.png')
+background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
+
 # Carregar a fonte Ubuntu Regular para uso no jogo
 pygame.font.init()
 
-# Formatar todas as fontes com a fonte Ubuntu do Google Fontes na pasta ubuntu
-pygame.font.Font(r".\fontes\Ubuntu-Regular.ttf", 36)
-pygame.font.Font(r".\fontes\Ubuntu-Regular.ttf", 24)
+# Formatar todas as fontes com a fonte Ubuntu do Google Fontes na pasta fontes
+fonte_grande = pygame.font.Font(r'.\fontes\Ubuntu-Regular.ttf', 24)
+fonte_pequena = pygame.font.Font(r'.\fontes\Ubuntu-Regular.ttf', 18)
+fonte_bold = pygame.font.Font(r'.\fontes\Ubuntu-Bold.ttf', 24)
 
 # Cores
 WHITE = (255, 255, 255)
 GREEN = (0, 200, 0)
 RED = (200, 0, 0)
 BLACK = (0, 0, 0)
+
 
 # Variáveis de Jogo
 saldo_inicial = 0.00  # Saldo inicial
@@ -35,6 +41,9 @@ RTP = 0.95  # Retorno ao Jogador ajustado para 95%
 ganhos_totais = 0.00  # Soma dos ganhos
 perdas_totais = 0.00  # Soma das perdas
 depositos = 0.00  # Soma dos depósitos adicionais
+rtp_acumulado = 0.00  # RTP acumulado
+total_apostas = 0.00  # Total de apostas feitas
+total_ganhos = 0.00  # Total de ganhos acumulados
 
 # Símbolos e layout
 coluna_largura = 150
@@ -68,13 +77,13 @@ símbolos_probabilidades = {
 SIMBOLO_WILD = 'wild'
 
 # Carregar imagens dos símbolos (substituir pelos seus próprios arquivos de símbolo)
-laranjas = pygame.image.load(r'.\img\laranjas.png')
-sinos = pygame.image.load(r'.\img\sinos.png')
-envelopes = pygame.image.load(r'.\img\envelopes.png')
-moedas = pygame.image.load(r'.\img\moedas.png')
-jade = pygame.image.load(r'.\img\jade.png')
-enfeite_dourado = pygame.image.load(r'.\img\enfeite_dourado.png')
-wild = pygame.image.load(r'.\img\wild.png')
+laranjas = pygame.image.load(r'./img/laranjas.png')
+sinos = pygame.image.load(r'./img/sinos.png')
+envelopes = pygame.image.load(r'./img/envelopes.png')
+moedas = pygame.image.load(r'./img/moedas.png')
+jade = pygame.image.load(r'./img/jade.png')
+enfeite_dourado = pygame.image.load(r'./img/enfeite_dourado.png')
+wild = pygame.image.load(r'./img/wild.png')
 
 # Ajustar o tamanho dos símbolos
 símbolos = {
@@ -101,7 +110,7 @@ def rodar_jogo():
 
 # Função para verificar as linhas de pagamento
 def verificar_pagamento(resultado):
-    global multiplicador
+    global multiplicador, rtp_acumulado, total_apostas, total_ganhos
     multiplicador = 1
     vitoria = False
     linhas_vencedoras = []
@@ -111,27 +120,35 @@ def verificar_pagamento(resultado):
     for lin in range(num_linhas):
         if resultado[lin][0] == resultado[lin][1] == resultado[lin][2]:
             linhas_vencedoras.append(resultado[lin][0])
-            motivo = f"Você ganhou por obter 3 {resultado[lin][0]}s na linha {lin + 1}."
+            motivo = f"Você ganhou por obter 3 {resultado[lin][0]} na linha {lin + 1}."
             vitoria = True
 
     # Verificar diagonais
     if resultado[0][0] == resultado[1][1] == resultado[2][2]:  # Diagonal principal
         linhas_vencedoras.append(resultado[0][0])
-        motivo = f"Você ganhou por obter 3 {resultado[0][0]}s na diagonal principal."
+        motivo = f"Você ganhou por obter 3 {resultado[0][0]} na diagonal principal."
         vitoria = True
     if resultado[0][2] == resultado[1][1] == resultado[2][0]:  # Diagonal inversa
         linhas_vencedoras.append(resultado[0][2])
-        motivo = f"Você ganhou por obter 3 {resultado[0][2]}s na diagonal inversa."
+        motivo = f"Você ganhou por obter 3 {resultado[0][2]} na diagonal inversa."
         vitoria = True
 
     # Multiplicador de 10x só se o grid inteiro tiver o mesmo símbolo
     if all(resultado[i][j] == resultado[0][0] for i in range(num_linhas) for j in range(num_colunas)):
         multiplicador = 10
         motivo = "Você ganhou com multiplicador 10x! Grid completo com o mesmo símbolo."
+        vitoria = True
+
+    total_apostas += aposta  # Atualizar o total de apostas feitas
 
     if vitoria:
+        ganho = calcular_ganho(linhas_vencedoras)
+        total_ganhos += ganho  # Atualizar o total de ganhos acumulados
+        rtp_acumulado = total_ganhos / total_apostas  # Calcular o RTP acumulado
         return linhas_vencedoras, motivo
-    return [], "Você perdeu porque não houve combinações vencedoras."
+    else:
+        rtp_acumulado = total_ganhos / total_apostas  # Calcular o RTP acumulado mesmo em caso de perda
+        return [], "Você perdeu porque não houve combinações vencedoras."
 
 # Função para calcular o valor ganho com base no RTP
 def calcular_ganho(linhas_vencedoras):
@@ -144,29 +161,31 @@ def calcular_ganho(linhas_vencedoras):
 def desenhar_roleta(resultados):
     for lin in range(num_linhas):
         for col in range(num_colunas):
-            screen.blit(símbolos[resultados[lin][col]], (col * coluna_largura + 225, lin * coluna_altura + 100))
+            screen.blit(símbolos[resultados[lin][col]], (col * coluna_largura + 200, lin * coluna_altura + 80))
 
 # Função para desenhar o saldo e aposta
 def desenhar_saldo_aposta(banca, aposta):
-    fonte = pygame.font.Font(None, 36)
-    saldo_texto = fonte.render(f"Banca: R$ {banca:.2f}", True, WHITE)
-    aposta_texto = fonte.render(f"Aposta: R$ {aposta:.2f}", True, WHITE)
-    screen.blit(saldo_texto, (50, 20))
-    screen.blit(aposta_texto, (600, 20))
+    saldo_texto = fonte_bold.render(f"Banca: R$ {banca:.2f}", True, BLACK)
+    aposta_texto = fonte_bold.render(f"Aposta: R$ {aposta:.2f}", True, BLACK)
+    screen.blit(saldo_texto, (90, 18))
+    screen.blit(aposta_texto, (545, 18))
 
 # Função para desenhar a mensagem de resultado (com multiplicador se vencer)
 def desenhar_mensagem(mensagem, cor, motivo, multiplicador=1):
-    fonte = pygame.font.Font(None, 36)
     if multiplicador > 1:
         mensagem = f"{mensagem} - Multiplicador: {multiplicador}x!"  # Mostrando o multiplicador na mensagem de vitória
-    mensagem_texto = fonte.render(mensagem, True, cor)
-    mensagem_rect = mensagem_texto.get_rect(center=(screen_width // 2, 550))
+    mensagem_texto = fonte_grande.render(mensagem, True, cor)
+    mensagem_rect = mensagem_texto.get_rect(center=(screen_width // 2, 535))
     screen.blit(mensagem_texto, mensagem_rect)
     
-    fonte_pequena = pygame.font.Font(None, 24)
-    motivo_texto = fonte_pequena.render(motivo, True, WHITE)
-    motivo_rect = motivo_texto.get_rect(center=(screen_width // 2, 580))
+    motivo_texto = fonte_pequena.render(motivo, True, BLACK)
+    motivo_rect = motivo_texto.get_rect(center=(screen_width // 2, 560))
     screen.blit(motivo_texto, motivo_rect)
+
+# Função para desenhar o RTP acumulado na tela
+def desenhar_rtp_acumulado(rtp_acumulado):
+    rtp_texto = fonte_pequena.render(f"RTP Acumulado: {rtp_acumulado * 100:.2f}%", True, WHITE)
+    screen.blit(rtp_texto, (10, 600))
 
 # Função para simular várias apostas e gerar um relatório
 def simular_apostas(quantidade):
@@ -201,7 +220,7 @@ def simular_apostas(quantidade):
     total_ganhos = ganhos_totais
     total_perdas = perdas_totais
     total = total_ganhos - total_perdas
-    mensagem = f"{quantidade} Giros:\nGanhou R$ {total_ganhos:.2f} | Perdeu R$ {total_perdas:.2f} | Total R$ {total:.2f}"
+    mensagem = f"{quantidade} Giros: Ganhou R$ {total_ganhos:.2f} | Perdeu R$ {total_perdas:.2f} | Total R$ {total:.2f}"
     mensagem_cor = GREEN if total >= 0 else RED
 
     for linha in relatorio:
@@ -217,10 +236,13 @@ def calcular_saldo_real():
 
 # Função para resetar o jogo
 def resetar_jogo():
-    global ganhos_totais, perdas_totais, depositos
+    global ganhos_totais, perdas_totais, depositos, rtp_acumulado, total_apostas, total_ganhos
     ganhos_totais = 0.00  # Reseta os ganhos totais
     perdas_totais = 0.00  # Reseta as perdas totais
     depositos = 0.00  # Reseta os depósitos
+    rtp_acumulado = 0.00  # Reseta o RTP acumulado
+    total_apostas = 0.00  # Reseta o total de apostas feitas
+    total_ganhos = 0.00  # Reseta o total de ganhos acumulados
 
 # Função principal do jogo
 def jogo():
@@ -279,10 +301,14 @@ def jogo():
 
             manager.process_events(event)
 
-        screen.fill(BLACK)
+        # Desenhar a imagem de background
+        screen.blit(background_image, (0, 0))
+
+        # screen.fill(BLACK)
         desenhar_roleta(resultado)
         desenhar_saldo_aposta(calcular_banca(), aposta)
         desenhar_mensagem(mensagem, mensagem_cor, mensagem_motivo, multiplicador)
+        desenhar_rtp_acumulado(rtp_acumulado)  # Desenhar o RTP acumulado
 
         # Atualizar e desenhar a interface do pygame_gui
         manager.update(time_delta)
@@ -290,12 +316,10 @@ def jogo():
 
         # Desenhar o botão manual de "Girar"
         pygame.draw.rect(screen, GREEN, girar_button)
-        fonte = pygame.font.Font(None, 36)
-        girar_texto = fonte.render("Girar", True, WHITE)
-        screen.blit(girar_texto, (350, 610))
+        girar_texto = fonte_bold.render("GIRAR", True, WHITE)
+        screen.blit(girar_texto, (363, 610))
 
         # Desenhar o resumo dos ganhos e perdas
-        fonte_pequena = pygame.font.Font(None, 24)
         resumo_texto = fonte_pequena.render(f"Ganhos Totais: R$ {ganhos_totais:.2f}", True, WHITE)
         screen.blit(resumo_texto, (10, 650))
         perdas_texto = fonte_pequena.render(f"Perdas Totais: R$ {perdas_totais:.2f}", True, WHITE)
@@ -316,8 +340,8 @@ def jogo():
 girar_button = pygame.Rect(325, 600, 150, 50)  # Botão de girar original
 
 simular_button = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((650, 670), (125, 50)),  # Colocado abaixo do botão "Girar"
-    text="Simular",
+    relative_rect=pygame.Rect((660, 670), (125, 50)),  # Colocado abaixo do botão "Girar"
+    text="GIROS",
     manager=manager
 )
 
@@ -328,13 +352,13 @@ depositar_button = pygame_gui.elements.UIButton(
 )
 
 resetar_button = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((700, 730), (70, 50)),  # Botão de reset abaixo do "Depositar"
+    relative_rect=pygame.Rect((705, 730), (90, 50)),  # Botão de reset abaixo do "Depositar"
     text="Resetar",
     manager=manager
 )
 
 simulacoes_input = pygame_gui.elements.UITextEntryLine(
-    relative_rect=pygame.Rect((550, 680), (100, 30)),  # Mantido conforme solicitado
+    relative_rect=pygame.Rect((555, 680), (100, 30)),  # Mantido conforme solicitado
     manager=manager
 )
 
