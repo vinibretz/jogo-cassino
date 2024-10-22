@@ -1,7 +1,6 @@
 import random
 import pygame
 import pygame_gui
-import time
 
 # Inicializando o Pygame e o pygame_gui
 pygame.init()
@@ -97,33 +96,6 @@ símbolos = {
     'wild': pygame.transform.scale(wild, (100, 100))
 }
 
-def animar_roleta(time_delta):
-    for _ in range(20):  # Número de iterações da animação
-        resultados = rodar_jogo()
-        screen.blit(background_image, (0, 0))
-        desenhar_roleta(resultados)
-        desenhar_saldo_aposta(calcular_banca(), aposta)
-        desenhar_mensagem(mensagem, mensagem_cor, mensagem_motivo, multiplicador)
-        desenhar_rtp_acumulado(rtp_acumulado)
-        manager.update(time_delta)
-        manager.draw_ui(screen)
-        pygame.display.flip()
-        time.sleep(0.1)  # Pequena pausa para criar o efeito de rotação
-
-def animar_roleta_simulacao(time_delta, duracao):
-    start_time = time.time()
-    while time.time() - start_time < duracao:
-        resultados = rodar_jogo()
-        screen.blit(background_image, (0, 0))
-        desenhar_roleta(resultados)
-        desenhar_saldo_aposta(calcular_banca(), aposta)
-        desenhar_mensagem(mensagem, mensagem_cor, mensagem_motivo, multiplicador)
-        desenhar_rtp_acumulado(rtp_acumulado)
-        manager.update(time_delta)
-        manager.draw_ui(screen)
-        pygame.display.flip()
-        time.sleep(0.1)  # Pequena pausa para criar o efeito de rotação
-
 # Função para escolher símbolos com base nas probabilidades ajustadas
 def escolher_simbolo():
     return random.choices(
@@ -136,6 +108,7 @@ def escolher_simbolo():
 def rodar_jogo():
     return [[escolher_simbolo() for _ in range(num_colunas)] for _ in range(num_linhas)]
 
+# Função para verificar as linhas de pagamento
 def verificar_pagamento(resultado):
     global multiplicador, rtp_acumulado, total_apostas, total_ganhos
     multiplicador = 1
@@ -147,26 +120,23 @@ def verificar_pagamento(resultado):
     for lin in range(num_linhas):
         if resultado[lin][0] == resultado[lin][1] == resultado[lin][2]:
             linhas_vencedoras.append(resultado[lin][0])
-            motivo = f"Por obter 3 {resultado[lin][0]} na linha {lin + 1} =)"
+            motivo = f"Você ganhou por obter 3 {resultado[lin][0]} na linha {lin + 1}."
             vitoria = True
-            multiplicador = símbolos_multiplicadores[resultado[lin][0]]  # Multiplicador do símbolo vencedor
 
     # Verificar diagonais
     if resultado[0][0] == resultado[1][1] == resultado[2][2]:  # Diagonal principal
         linhas_vencedoras.append(resultado[0][0])
-        motivo = f"Por obter 3 {resultado[0][0]} na diagonal principal =)"
+        motivo = f"Você ganhou por obter 3 {resultado[0][0]} na diagonal principal."
         vitoria = True
-        multiplicador = símbolos_multiplicadores[resultado[0][0]]  # Multiplicador do símbolo vencedor
     if resultado[0][2] == resultado[1][1] == resultado[2][0]:  # Diagonal inversa
         linhas_vencedoras.append(resultado[0][2])
-        motivo = f"Por obter 3 {resultado[0][2]} na diagonal inversa =)"
+        motivo = f"Você ganhou por obter 3 {resultado[0][2]} na diagonal inversa."
         vitoria = True
-        multiplicador = símbolos_multiplicadores[resultado[0][2]]  # Multiplicador do símbolo vencedor
 
     # Multiplicador de 10x só se o grid inteiro tiver o mesmo símbolo
     if all(resultado[i][j] == resultado[0][0] for i in range(num_linhas) for j in range(num_colunas)):
         multiplicador = 10
-        motivo = "Você ganhou com multiplicador 10x! Grid completo com o mesmo símbolo =)"
+        motivo = "Você ganhou com multiplicador 10x! Grid completo com o mesmo símbolo."
         vitoria = True
 
     total_apostas += aposta  # Atualizar o total de apostas feitas
@@ -178,12 +148,13 @@ def verificar_pagamento(resultado):
         return linhas_vencedoras, motivo
     else:
         rtp_acumulado = total_ganhos / total_apostas  # Calcular o RTP acumulado mesmo em caso de perda
-        return [], "Porque não houve combinações vencedoras =("
+        return [], "Você perdeu porque não houve combinações vencedoras."
 
+# Função para calcular o valor ganho com base no RTP
 def calcular_ganho(linhas_vencedoras):
     ganho_total = 0
     for simbolo in linhas_vencedoras:
-        ganho_total += aposta * símbolos_multiplicadores[simbolo]  # Remover multiplicador aqui
+        ganho_total += aposta * símbolos_multiplicadores[simbolo] * multiplicador
     return ganho_total * RTP  # Ajuste do valor ganho com base no RTP
 
 # Função para desenhar os símbolos na roleta
@@ -202,7 +173,7 @@ def desenhar_saldo_aposta(banca, aposta):
 # Função para desenhar a mensagem de resultado (com multiplicador se vencer)
 def desenhar_mensagem(mensagem, cor, motivo, multiplicador=1):
     if multiplicador > 1:
-        mensagem = f"{mensagem}"  # Mostrando o multiplicador na mensagem de vitória
+        mensagem = f"{mensagem} - Multiplicador: {multiplicador}x!"  # Mostrando o multiplicador na mensagem de vitória
     mensagem_texto = fonte_grande.render(mensagem, True, cor)
     mensagem_rect = mensagem_texto.get_rect(center=(screen_width // 2, 535))
     screen.blit(mensagem_texto, mensagem_rect)
@@ -216,7 +187,8 @@ def desenhar_rtp_acumulado(rtp_acumulado):
     rtp_texto = fonte_pequena.render(f"RTP Acumulado: {rtp_acumulado * 100:.2f}%", True, WHITE)
     screen.blit(rtp_texto, (10, 600))
 
-def simular_apostas(quantidade, time_delta):
+# Função para simular várias apostas e gerar um relatório
+def simular_apostas(quantidade):
     global ganhos_totais, perdas_totais, mensagem, mensagem_cor, mensagem_motivo
     relatorio = []
 
@@ -224,8 +196,6 @@ def simular_apostas(quantidade, time_delta):
         mensagem = "SALDO INSUFICIENTE PARA SIMULAÇÃO!"
         mensagem_cor = RED
         return
-
-    animar_roleta_simulacao(time_delta, 2)  # Animação de 2 segundos antes de iniciar as simulações
 
     for i in range(quantidade):
         resultado = rodar_jogo()
@@ -274,6 +244,7 @@ def resetar_jogo():
     total_apostas = 0.00  # Reseta o total de apostas feitas
     total_ganhos = 0.00  # Reseta o total de ganhos acumulados
 
+# Função principal do jogo
 def jogo():
     global mensagem, mensagem_cor, mensagem_motivo, multiplicador, ganhos_totais, perdas_totais, depositos
     rodando = True
@@ -291,16 +262,15 @@ def jogo():
                     mensagem_motivo = ""  # Limpar motivo anterior
                     if calcular_banca() >= aposta:
                         perdas_totais += aposta
-                        animar_roleta(time_delta)  # Passar time_delta para a função de animação
                         resultado = rodar_jogo()
                         linhas_vencedoras, mensagem_motivo = verificar_pagamento(resultado)
                         if linhas_vencedoras:
                             ganho = calcular_ganho(linhas_vencedoras)
                             ganhos_totais += ganho
-                            mensagem = f"Você Ganhou R$ {ganho:.2f} - MULTIPLICADOR {multiplicador}X!"
+                            mensagem = f"VOCÊ GANHOU R$ {ganho:.2f}"
                             mensagem_cor = GREEN
                         else:
-                            mensagem = "Você Perdeu!"
+                            mensagem = "VOCÊ PERDEU!"
                             mensagem_cor = RED
                     else:
                         mensagem = "SALDO INSUFICIENTE!"
@@ -316,7 +286,7 @@ def jogo():
                         quantidade = int(simulacoes_input.get_text())
                         if quantidade <= 0:
                             raise ValueError
-                        simular_apostas(quantidade, time_delta)  # Passar time_delta para a função de simulação
+                        simular_apostas(quantidade)
                     except ValueError:
                         mensagem = "Por favor, insira um número válido de simulações"
                         mensagem_cor = RED
@@ -334,6 +304,7 @@ def jogo():
         # Desenhar a imagem de background
         screen.blit(background_image, (0, 0))
 
+        # screen.fill(BLACK)
         desenhar_roleta(resultado)
         desenhar_saldo_aposta(calcular_banca(), aposta)
         desenhar_mensagem(mensagem, mensagem_cor, mensagem_motivo, multiplicador)
